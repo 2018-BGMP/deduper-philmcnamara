@@ -43,15 +43,12 @@ def adjust_position(line):
     soft clipping. If insertions/delections/Ns are present, the position will \
     be adjusted to the side of the read with more matches/mismatches"""
     cigar = line[5]
-    print(cigar)
     # Parse the cigar string into a list with elements as the components
     parsed = ""
     for char in range(len(cigar)):
         parsed += cigar[char]
         # Split on every letter except the last
-        print(cigar[char])
-        if((char in ["S", "M", "D", "I", "N"]) and (char != len(cigar) - 1)):
-            print("true")
+        if((cigar[char] in "SMDIN") and (char != len(cigar) - 1)):
             parsed += "-"
     parsed = parsed.split('-')
 
@@ -59,26 +56,17 @@ def adjust_position(line):
     if(line[-1] > 0):
         # Only adjust for soft-clipping at 5' end - S is not last char
         if(parsed[0][-1] == "S"):
-            print(parsed[0])
             adjustment = int(parsed[0][:-1])
             line[-1] += adjustment
-            print(adjustment)
 
     # Reverse Strand
     else:
         for char_index in range(len(cigar)):
             # Only adjust for soft-clipping at 5' end - S is last char
             # Add, since reverse strand position is stored as a negative int
-            if(cigar[char_index] == "S" and char_index == len(cigar) - 1):
-                adjustment = ""
-                # Iterate backwards. Stop is arbitrary, break when we see "M"
-                for x in range(len(cigar) - 2, len(cigar) - 5, -1):
-                    if(cigar[x].isdigit()):
-                        # Building backwards
-                        adjustment = cigar[x] + adjustment
-                    elif(cigar[x] == "M"):
-                        break
-                line[-1] += int(adjustment)
+            if(parsed[-1][-1] == "S"):
+                adjustment = int(parsed[-1][:-1])
+                line[-1] += adjustment
 
 
 with open(args.file, "r") as input, \
