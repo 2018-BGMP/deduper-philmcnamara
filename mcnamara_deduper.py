@@ -43,6 +43,7 @@ def adjust_position(line):
     soft clipping. If insertions/delections/Ns are present, the position will \
     be adjusted to the side of the read with more matches/mismatches"""
     cigar = line[5]
+
     # Parse the cigar string into a list with elements as the components
     parsed = ""
     for char in range(len(cigar)):
@@ -54,13 +55,53 @@ def adjust_position(line):
 
     # Forward Strand
     if(line[-1] > 0):
+        # Adjust real mapping position if insertions/deletions have occured
+        for item in parsed:
+            if("D" in item or "I" in item or "N" in item):
+                # Position with highest value for M is assumed to be position
+                max_matches = 0
+                for x in parsed:
+                    if("M" in x):
+                        matches = int(x[:-1])
+                        max_matches = max(matches, max_matches)
+                # position of highest M
+                pos = parsed.index(str(max_matches) + "M")
+                # If not at the beginning of the cigar string we need to adjust
+                if(pos != 0 and pos != 1):
+                    # Add all left-most mapping to position
+                    adjustment = 0
+                    for i in range(pos):
+                        c = parsed[i]
+                        # Exclude soft-clipping adjustment
+                        if("M" in c or "D" in c or "I" in c or "N" in c):
+                            adjustment += int(parsed[i][:-1])
+                    line[-1] += adjustment
         # Only adjust for soft-clipping at 5' end - S is not last char
         if(parsed[0][-1] == "S"):
             adjustment = int(parsed[0][:-1])
             line[-1] += adjustment
-
     # Reverse Strand
     else:
+        for item in parsed:
+            if("D" in item or "I" in item or "N" in item):
+                # Position with highest value for M is assumed to be position
+                max_matches = 0
+                for x in parsed:
+                    if("M" in x):
+                        matches = int(x[:-1])
+                        max_matches = max(matches, max_matches)
+                # position of highest M, subtract from length to get other end
+                pos = len(parsed) - parsed.index(str(max_matches) + "M")
+                # If not at the end of the cigar string we need to adjust
+                if(pos != 0 and pos != 1):
+                    # Add all right-most mapping to position
+                    adjustment = 0
+                    for i in range(pos):
+                        c = parsed[i]
+                        # Exclude soft-clipping adjustment
+                        if("M" in c or "D" in c or "I" in c or "N" in c):
+                            adjustment += int(parsed[i][:-1])
+                    line[-1] += adjustment
         for char_index in range(len(cigar)):
             # Only adjust for soft-clipping at 5' end - S is last char
             # Add, since reverse strand position is stored as a negative int
@@ -90,7 +131,7 @@ with open(args.file, "r") as input, \
             line.append(int(line[3]))
             # Extract and save the UMI
             umi = line[0][-8:]
-            # Adjust for strand with bitwise flag
+            # Adjust for strand with bitwise flag, reverse strands are negative
             if(int(line[1]) & 16):
                 line[-1] *= -1
             # Adjust the read's position
